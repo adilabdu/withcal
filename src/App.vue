@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, type ComputedRef, type Ref, ref } from 'vue'
+import {computed, type ComputedRef, type Ref, ref, watch} from 'vue'
 import useClientSize from '@/composables/client-size'
+import { formatToPrice } from "@/utils";
 
 const clientSize = useClientSize();
 
@@ -44,26 +45,55 @@ const records: Array<{ index: string, label: string, description: string }> = [
 
 
 
-const input: Ref<{ y: number, t: number, x: number, w: number, r: number }> = ref({
+const data: Ref<{ y: number, t: number, x: number, w: number, r: number }> = ref({
   y: 0,
-  t: 0.02,
+  t: 0.1,
   x: 0,
   w: 0,
   r: 0
 })
 
-const data: ComputedRef<{ y: number, t: string, x: number, w: number, r: number }> = computed(() => {
-  return {
-    'y': 15800.25,
-    'x': 14322.22,
-    'w': 205.22,
-    'r': 150004.2
-  }
-});
+function calculateTax(index: string, event: any): void {
+  const input: number = event.target.value;
 
-function calculateTax(index: string) {
-  console.log('hello world')
+  switch (index) {
+    case 'x':
+      data.value.x = formatToPrice(Number(input));
+      data.value.y = formatToPrice((1 + data.value.t) * data.value.x);
+      data.value.w = formatToPrice(input * 0.02);
+      data.value.r = formatToPrice(data.value.y - data.value.w);
+      break;
+    case 't':
+      data.value.t = formatToPrice(Number(input));
+      data.value.x = formatToPrice(data.value.y / (1 + data.value.t));
+      data.value.w = formatToPrice(data.value.x * 0.02);
+      data.value.r = formatToPrice(data.value.y - data.value.w);
+      break;
+    case 'w':
+      data.value.w = formatToPrice(Number(input));
+      data.value.x = formatToPrice(data.value.w / 0.02);
+      data.value.y = formatToPrice(data.value.x * (1 + data.value.t));
+      data.value.r = formatToPrice(data.value.y - data.value.w);
+      break;
+    case 'r':
+      data.value.r = formatToPrice(Number(input));
+      data.value.x = formatToPrice(data.value.r / (1 + data.value.t - 0.02));
+      data.value.y = formatToPrice(data.value.x * (1 + data.value.t));
+      data.value.w = formatToPrice(data.value.x * 0.02);
+      break;
+    case 'y':
+    default:
+      data.value.y = formatToPrice(Number(input));
+      data.value.x = formatToPrice(data.value.y / (1 + data.value.t));
+      data.value.w = formatToPrice(data.value.x * 0.02);
+      data.value.r = formatToPrice(data.value.y - data.value.w);
+      break;
+  }
 }
+
+watch(() => data.value.t, () => {
+  calculateTax('t', { target: { value: data.value.t } })
+})
 
 </script>
 
@@ -79,10 +109,12 @@ function calculateTax(index: string) {
         <td class="whitespace-nowrap pl-2 pr-2 md:pr-12 border-gray-300">{{ record.label }}</td>
         <td class="hidden md:table-cell w-full px-2 text-right text-gray-700">{{ record.description }}</td>
         <td class="px-2 whitespace-nowrap font-bold font-mono text-right pl-2 md:pl-12">
-          <input v-if="record.index !== 't'" @input="calculateTax(record.index)" :value="input[record.index as keyof typeof input]" type="text" class="md:group-hover:bg-gray-100 w-full bg-gray-50 rounded-none outline-none outline-0 text-right" />
+          <div v-if="record.index !== 't'" class="flex items-center justify-end gap-2">
+            <input @input="calculateTax(record.index, $event)" :value="data[record.index as keyof typeof data]" type="text" class="md:group-hover:bg-gray-100 w-full bg-gray-50 rounded-none outline-none outline-0 text-right" />
+          </div>
           <div v-else class="flex items-center justify-end gap-2.5">
             <div class="flex items-center gap-1" v-for="(option, o) in taxOptions" :key="o">
-              <input type="radio" :value="option.value" v-model="input['t']" />
+              <input type="radio" :value="option.value" v-model="data['t']" />
               <label class="text-xs">{{ option.label }}</label>
             </div>
           </div>
